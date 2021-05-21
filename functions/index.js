@@ -8,6 +8,43 @@ const db = admin.firestore();
 
 // MIDDLEWARES
 
+const FirebaseAuth = (req, res, next) => {
+  let idToken;
+  // get an access token for the authorized user
+  if (
+    req.headers.authorization &&
+    req.headers.authorization.startsWith("Bearer ")
+  ) {
+    // get the access token
+    idToken = req.headers.authorization.split("Bearer ")[1];
+  } else {
+    console.error("No token found");
+    return res.status(403).json({ error: "Unathorized user" });
+  }
+  admin
+    .auth()
+    .verifyIdToken(idToken)
+    .then((decodedToken) => {
+      req.user = decodedToken;
+
+      return db
+        .collection("users")
+        .where("userId", "==", req.user.uid)
+        .limit(1)
+        .get();
+    })
+    .then((data) => {
+      req.data.handle = data.docs[0].data().handle;
+      return next();
+    })
+    .catch((err) => {
+      console.error("Error verifying token", err);
+      return res
+        .status(403)
+        .json({ error: " There was an error verifying the token" });
+    });
+};
+
 // DATABASE CONFIG
 const firebase = require("firebase");
 const firebaseConfig = {
@@ -44,11 +81,12 @@ app.get("/getPosts", (req, res) => {
 });
 
 // api to create a new post
-app.post("/createPost", (req, res) => {
+app.post("/createPost", FirebaseAuth, (req, res) => {
+  // the body should not be empty of the post
   const newPost = {
     body: req.body.body,
     createdAt: new Date().toISOString(),
-    userHandle: req.body.userHandle,
+    userHandle: req.user.handle,
   };
   // adding the newPost body to the database
   db.collection("posts")
