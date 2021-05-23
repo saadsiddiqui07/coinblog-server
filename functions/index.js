@@ -6,45 +6,6 @@ admin.initializeApp();
 const app = require("express")();
 const db = admin.firestore();
 
-// MIDDLEWARES
-
-const FirebaseAuth = (req, res, next) => {
-  let idToken;
-  // get an access token for the authorized user
-  if (
-    req.headers.authorization &&
-    req.headers.authorization.startsWith("Bearer ")
-  ) {
-    // get the access token
-    idToken = req.headers.authorization.split("Bearer ")[1];
-  } else {
-    console.error("No token found");
-    return res.status(403).json({ error: "Unathorized user" });
-  }
-  admin
-    .auth()
-    .verifyIdToken(idToken)
-    .then((decodedToken) => {
-      req.user = decodedToken;
-
-      return db
-        .collection("users")
-        .where("userId", "==", req.user.uid)
-        .limit(1)
-        .get();
-    })
-    .then((data) => {
-      req.data.handle = data.docs[0].data().handle;
-      return next();
-    })
-    .catch((err) => {
-      console.error("Error verifying token", err);
-      return res
-        .status(403)
-        .json({ error: " There was an error verifying the token" });
-    });
-};
-
 // DATABASE CONFIG
 const firebase = require("firebase");
 const firebaseConfig = {
@@ -80,9 +41,87 @@ app.get("/getPosts", (req, res) => {
     .catch((err) => console.error(err));
 });
 
+// MIDDLEWARES
+
+const FirebaseAuth = (req, res, next) => {
+  let idToken;
+  // first check if the header has a auth token
+  if (
+    req.headers.authorization &&
+    req.headers.authorization.startsWith("Bearer ")
+  ) {
+    // split the token from the header
+    idToken = req.headers.authorization.split("Bearer ")[1];
+  } else {
+    console.error("No token found");
+    return res.status(403).json({ error: "Unauthorized user" });
+  }
+
+  // verify the authentic token
+  admin
+    .auth()
+    .verifyIdToken(idToken)
+    .then((decodedToken) => {
+      req.user = decodedToken;
+      console.log(decodedToken);
+
+      return db
+        .collection("users")
+        .where("userId", "==", req.user.uid)
+        .limit(1)
+        .get();
+    })
+    .then((data) => {
+      req.user.handle = data.docs[0].data().handle;
+      return next();
+    })
+    .catch((err) => {
+      console.error("error verifying token", err);
+      return res.status(403).json(err);
+    });
+
+  /*let idToken;
+  const bearerHeader = req.headers["authorization"];
+  if (bearerHeader) {
+    const bearer = bearerHeader.split(" ");
+    idToken = bearer[1];
+  } else {
+    console.error("No token found");
+    return res.status(403).json({ error: "Unauthorized user" });
+  }
+
+  admin
+    .auth()
+    .verifyIdToken(idToken)
+    .then((decodedToken) => {
+      req.user = decodedToken;
+      console.log(decodedToken);
+
+      return db
+        .collection("users")
+        .where("userId", "==", req.user.uid)
+        .limit(1)
+        .get();
+    })
+    .then((data) => {
+      req.user.handle = data.docs[0].data().handle;
+      return next();
+    })
+
+    .catch((err) => {
+      console.error("error verifying token", err);
+      return res.status(403).json(err);
+    });
+    */
+};
+
 // api to create a new post
 app.post("/createPost", FirebaseAuth, (req, res) => {
   // the body should not be empty of the post
+  if (req.body.body.trim() === "") {
+    return res.status(400).json({ message: "The body should not be empty" });
+  }
+
   const newPost = {
     body: req.body.body,
     createdAt: new Date().toISOString(),
@@ -178,7 +217,7 @@ app.post("/signup", (req, res) => {
 });
 
 // api to sign in as a user
-app.post("/signin", (req, res) => {
+app.post("/login", (req, res) => {
   const userDetails = {
     email: req.body.email,
     password: req.body.password,
