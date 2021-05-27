@@ -1,5 +1,5 @@
 // USERS HANDLERS
-const { db } = require("../utils/admin");
+const { db, admin } = require("../utils/admin");
 const validator = require("email-validator");
 const config = require("../utils/config");
 
@@ -127,4 +127,34 @@ exports.login = (req, res) => {
     });
 };
 
-exports.imageUpload = (req, res) => {}
+exports.imageUpload = (req, res) => {
+  const Busboy = require("busboy");
+  const path = require("path");
+  const os = require("os");
+  const fs = require("fs");
+
+  const busboy = new Busboy({ headers: req.headers });
+
+  let imageToBeUploaded = {};
+  let imageFileName;
+
+  busboy.on("file", (fieldname, file, filename, encoding, mimetype) => {
+    console.log(fieldname, file, filename, encoding, mimetype);
+
+    // my.image.png => ['my', 'image', 'png']
+    const imageExtension = filename.split(".")[filename.split(".").length - 1];
+
+    // get a random number for image --> 12879369.png
+    imageFileName = `${Math.round(
+      Math.random() * 1000000000000
+    ).toString()}.${imageExtension}`;
+
+    // join the image to a directory
+    const filepath = path.join(os.tmpdir(), imageFileName);
+    imageToBeUploaded = { filepath, mimetype };
+    file.pipe(fs.createWriteStream(filepath));
+  });
+  busboy.on("finish", () => {
+    admin.storage().bucket().upload(imageToBeUploaded.filepath, {});
+  });
+};
