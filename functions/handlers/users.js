@@ -206,4 +206,32 @@ exports.addUserDetails = (req, res) => {
     });
 };
 
-exports.getAuthenticatedUser = (req, res) => {};
+// get own user's data
+exports.getAuthenticatedUser = (req, res) => {
+  let userData = {};
+  // get user details
+  db.doc(`/users/${req.user.handle}`)
+    .get()
+    .then((doc) => {
+      if (doc.exists) {
+        userData.credentials = doc.data();
+        // get likes of user's posts
+        return db
+          .collection("likes")
+          .where("userHandle", "==", req.user.handle)
+          .get();
+      }
+    })
+    .then((data) => {
+      userData.likes = [];
+      // if there are likes on the post then return it
+      data.forEach((doc) => {
+        userData.likes.push(doc.data());
+      });
+      return res.json(userData);
+    })
+    .catch((err) => {
+      console.err(err);
+      return res.status(500).json({ error: err.code });
+    });
+};
