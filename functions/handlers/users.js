@@ -3,6 +3,7 @@ const { db, admin } = require("../utils/admin");
 const validator = require("email-validator");
 const config = require("../utils/config");
 const { uuid } = require("uuidv4");
+const { reduceUserDetails } = require("../utils/reduceUseDetails");
 
 const firebase = require("firebase");
 firebase.initializeApp(config);
@@ -145,8 +146,9 @@ exports.imageUpload = (req, res) => {
   let generatedToken = uuid();
 
   busboy.on("file", (fieldname, file, filename, encoding, mimetype) => {
-    console.log(fieldname, file, filename, encoding, mimetype);
-
+    if (mimetype !== "image/png" && mimetype !== "image/jpeg") {
+      return res.status(400).json({ error: "please enter an image file" });
+    }
     // my.image.png => ['my', 'image', 'png']
     const imageExtension = filename.split(".")[filename.split(".").length - 1];
 
@@ -188,3 +190,20 @@ exports.imageUpload = (req, res) => {
   });
   busboy.end(req.rawBody);
 };
+
+exports.addUserDetails = (req, res) => {
+  let userDetails = reduceUserDetails(req.body);
+
+  // update user's profile with details
+  db.doc(`/users/${req.user.handle}`)
+    .update(userDetails)
+    .then(() => {
+      return res.status(201).json({ message: "Profile updated successfully" });
+    })
+    .catch((err) => {
+      console.error(err);
+      res.status(400).json({ error: "Error while updating profile" });
+    });
+};
+
+exports.getAuthenticatedUser = (req, res) => {};
