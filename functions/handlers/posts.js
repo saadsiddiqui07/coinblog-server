@@ -1,6 +1,7 @@
 const admin = require("firebase-admin");
 const db = admin.firestore();
 
+// fetch all the posts from the database
 exports.getAllPosts = (req, res) => {
   db.collection("posts")
     .orderBy("createdAt", "desc")
@@ -31,7 +32,7 @@ exports.createPost = (req, res) => {
     createdAt: new Date().toISOString(),
     userHandle: req.user.handle,
   };
-  // adding the newPost body to the database
+  // adding the newPost object to the database
   db.collection("posts")
     .add(newPost)
     .then((doc) => {
@@ -40,5 +41,39 @@ exports.createPost = (req, res) => {
     .catch((err) => {
       res.status(500).json({ error: "Oops! it went wrong " });
       console.error(err);
+    });
+};
+
+// fetch a single post from the database
+exports.getOnePost = (req, res) => {
+  let postDetails = {};
+  // get a specific post details
+  db.doc(`/posts/${req.params.postId}`)
+    .get()
+    .then((doc) => {
+      if (!doc.exists) {
+        return res.status(400).json({ error: "Post not found" });
+      }
+      postDetails = doc.data();
+      postDetails.postId = doc.id;
+
+      // get the comment details of the specific post
+      return db
+        .collection("comments")
+        .orderBy("createdAt", "desc")
+        .where("postId", "==", req.params.postId)
+        .get();
+    })
+    .then((data) => {
+      postDetails.comments = [];
+      data.forEach((doc) => {
+        // push comments into an array
+        postDetails.comments.push(doc.data());
+      });
+      return res.json(postDetails);
+    })
+    .catch((err) => {
+      console.error(err);
+      res.status(500).json({ error: err.code });
     });
 };
