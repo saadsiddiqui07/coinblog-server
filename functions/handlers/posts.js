@@ -14,6 +14,9 @@ exports.getAllPosts = (req, res) => {
           body: doc.data().body,
           userHandle: doc.data().userHandle,
           createdAt: doc.data().createdAt,
+          commentCount: doc.data().commentCount,
+          likeCount: doc.data().likeCount,
+          userImage: doc.data().userImage,
         });
       });
       return res.json(posts);
@@ -31,12 +34,16 @@ exports.createPost = (req, res) => {
     body: req.body.body,
     createdAt: new Date().toISOString(),
     userHandle: req.user.handle,
+    likeCount: 0,
+    commentCount: 0,
   };
   // adding the newPost object to the database
   db.collection("posts")
     .add(newPost)
     .then((doc) => {
-      res.json({ message: `Document ${doc.id} created successfully` });
+      const resPost = newPost;
+      resPost.postId = doc.id;
+      res.json(resPost);
     })
     .catch((err) => {
       res.status(500).json({ error: "Oops! it went wrong " });
@@ -75,5 +82,37 @@ exports.getOnePost = (req, res) => {
     .catch((err) => {
       console.error(err);
       res.status(500).json({ error: err.code });
+    });
+};
+
+// api to comment on a post
+exports.commentOnPost = (req, res) => {
+  // new comment body
+  const newComment = {
+    body: req.body.body,
+    createdAt: new Date().toISOString(),
+    postId: req.params.postId,
+    userHandle: req.user.handle,
+    userImage: req.user.imageUrl,
+  };
+  console.log(newComment);
+
+  db.doc(`/posts/${req.params.postId}`)
+    .get()
+    .then((doc) => {
+      if (!doc.exists) {
+        return res.status(400).json({ error: "Post not found" });
+      }
+      return doc.ref.update({ commentCount: doc.data().commentCount + 1 });
+    })
+    .then(() => {
+      return db.collection("comments").add(newComment);
+    })
+    .then(() => {
+      res.json(newComment);
+    })
+    .catch((err) => {
+      console.log(err);
+      res.status(500).json({ error: "Something went wrong" });
     });
 };
