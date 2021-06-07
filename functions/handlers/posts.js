@@ -123,7 +123,7 @@ exports.commentOnPost = (req, res) => {
     });
 };
 
-exports.likeOnPost = (req, res) => {
+exports.likePost = (req, res) => {
   // check a like document
   const likeDocument = db
     .collection("likes")
@@ -132,7 +132,7 @@ exports.likeOnPost = (req, res) => {
     .limit(1);
 
   // get a specific post document
-  const postDocument = db.collection(`/posts/${req.params.postId}`);
+  const postDocument = db.doc(`/posts/${req.params.postId}`);
 
   let postData;
 
@@ -187,7 +187,7 @@ exports.unlikePost = (req, res) => {
     .limit(1);
 
   // get a specific post document
-  const postDocument = db.collection(`/posts/${req.params.postId}`);
+  const postDocument = db.doc(`/posts/${req.params.postId}`);
 
   let postData;
 
@@ -207,7 +207,7 @@ exports.unlikePost = (req, res) => {
         return res.status(400).json({ error: "Post not liked" });
       } else {
         return db
-          .doc(`likes/${data.docs[0].id}`)
+          .doc(`/likes/${data.docs[0].id}`)
           .delete()
           .then(() => {
             postData.likeCount--;
